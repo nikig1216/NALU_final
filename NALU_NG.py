@@ -103,7 +103,7 @@ def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
 # Generate a series of input number X1,X2 and X3 for training
 x1 =  np.arange(1000,11000, step=5, dtype= np.float32)
 x2 =  np.arange(500, 6500 , step=3, dtype= np.float32)
-x3 =  np.arange(0, 2000, step = 1, dtype= np.float32)
+x3 = np.arange(0, 2000, step = 1, dtype= np.float32)
 
 
 # Make any function of x1,x2 and x3 to try the network on
