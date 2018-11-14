@@ -56,9 +56,9 @@ def nac_complex_single_layer(x_in, out_units, epsilon = 0.000001):
     W = tf.nn.tanh(W_hat) * tf.nn.sigmoid(M_hat)
 
     # Express Input feature in log space to learn complex functions
-    x_modified = tf.log(tf.abs(x_in) + epsilon)
+    x_modified = tf.asinh(x_in)
 
-    m = tf.exp( tf.matmul(x_modified, W) )
+    m = tf.sinh( tf.matmul(x_modified, W) )
 
     return m, W
 
@@ -108,8 +108,8 @@ x3 = np.arange(0, 2000, step = 1, dtype= np.float32)
 
 
 # Make any function of x1,x2 and x3 to try the network on
-y_train = (x1/4) + (x2/2) + x3**2
-#y_train = x1 + x2 + x3
+#y_train = (x1/4) + (x2/2) + x3**2
+y_train = x1 + x2 + x3
 
 x_train = np.column_stack( (x1,x2,x3) )
 
@@ -123,9 +123,9 @@ x3 = np.random.randint(50, 150 , size=200).astype(np.float32)
 
 x_test = np.column_stack((x1,x2,x3))
 
-y_test = (x1/4) + (x2/2) + x3**2
+#y_test = (x1/4) + (x2/2) + x3**2
 
-#y_test = x1 + x2 + x3
+y_test = x1 + x2 + x3
 
 print()
 print(x_test.shape)
@@ -181,6 +181,10 @@ with tf.Session() as sess:
     print("Post training MSE: ", sess.run(loss, feed_dict={X: x_test, Y: y_test}))
 
     print("Actual sum: ", y_test[0:10])
-    print()
+    #print("x_test: ", x_test)
+    #print("y_test: ", y_test)
     y_hat = sess.run(y_pred, feed_dict={X: x_test, Y: y_test})
     print("Predicted sum: ", y_hat[0:10] )
+    diff = y_hat[0:10]-y_test[0:10]
+    print("Errors: "[int(i) for i in diff])
+    # 192 [77, 14, 101], lowest number has predicted value of -1 when adding
