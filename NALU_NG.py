@@ -3,8 +3,7 @@ import tensorflow as tf
 import keras
 import matplotlib.pyplot as plt
 
-# Define a Neural Accumulator (NAC) for addition/subtraction -> Useful to learn the addition/subtraction operation
-
+# Simple Neural Accumulator (NAC) for +/-
 def nac_simple_single_layer(x_in, out_units):
     '''
     Define a Neural Accumulator (NAC) for addition/subtraction -> Useful to learn the addition/subtraction operation
@@ -18,23 +17,19 @@ def nac_simple_single_layer(x_in, out_units):
     in_features = x_in.shape[1]
 
     # define W_hat and M_hat
-
     W_hat = tf.get_variable(name = "W_hat", initializer=tf.initializers.random_uniform(minval=-2, maxval=2),shape=[in_features, out_units],  trainable=True)
     M_hat = tf.get_variable(name = "M_hat", initializer=tf.initializers.random_uniform(minval=-2, maxval=2), shape=[in_features, out_units], trainable=True)
 
     # Get W
-
     W = tf.nn.tanh(W_hat) * tf.nn.sigmoid(M_hat)
 
     y_out = tf.matmul(x_in,W)
 
     return y_out,W
 
-# define a complex nac in log space -> for more complex arithmetic functions such as
-# multiplication, division and power
+# Complex NAC using Log Space for x,/,^
 
 def nac_complex_single_layer(x_in, out_units, epsilon = 0.000001):
-
     '''
     :param x_in: input feature vector
     :param out_units: number of output units of the cell
@@ -54,15 +49,15 @@ def nac_complex_single_layer(x_in, out_units, epsilon = 0.000001):
 
     W = tf.nn.tanh(W_hat) * tf.nn.sigmoid(M_hat)
 
-    # Express Input feature in log space to learn complex functions
+    # Express Input feature in log space
     x_modified = tf.log(tf.abs(x_in) + epsilon)
+    # x_modified = tf.asinh(x_in + epsilon)
 
     m = tf.exp( tf.matmul(x_modified, W) )
 
     return m, W
 
-# Define a NALU having combination of NAC1 and NAC2
-
+# NALU, combining simple NAC and complex NAC
 def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
     '''
     :param x_in: input feature vector
@@ -78,10 +73,10 @@ def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
 
     in_shape = x_in.shape[1]
 
-    # Get output of NAC1
+    # Get output of simple NAC
     a, W_simple = nac_simple_single_layer(x_in, out_units)
 
-    # Get output of NAC2
+    # Get output of complex NAC
     m, W_complex = nac_complex_single_layer(x_in, out_units, epsilon= epsilon)
 
     # Gate signal layer
@@ -98,46 +93,52 @@ def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
         return y_out
 
 
-# Test the Network by learning the adition
+# Test the Network by learning the addition
 
 # Generate a series of input number X1,X2 and X3 for training
-x1 =  np.arange(1000,11000, step=5, dtype= np.float32)
-x2 =  np.arange(500, 6500 , step=3, dtype= np.float32)
-x3 =  np.arange(0, 2000, step = 1, dtype= np.float32)
-
+# x1 =  np.arange(1000,11000, step=5, dtype= np.float32)
+# x2 =  np.arange(500, 6500 , step=3, dtype= np.float32)
+# x3 = np.arange(0, 2000, step = 1, dtype= np.float32)
+x1 =  np.arange(500, 1500, step=2, dtype= np.float32)
+x2 =  np.arange(1, 501 , step=1, dtype= np.float32)
+x3 = np.arange(0, 500, step = 1, dtype= np.float32)
 
 # Make any function of x1,x2 and x3 to try the network on
-y_train = (x1/4) + (x2/2) + x3**2
-#y_train = x1 + x2 + x3
+# y_train = (x1/4) + (x2/2) + x3**2
+y_train = x1 + x2 #+ x3
 
-x_train = np.column_stack( (x1,x2,x3) )
+x_train = np.column_stack((x1,x2))
 
-print(x_train.shape)
-print(y_train.shape)
+# print(x_train.shape)
+# print(y_train.shape)
 
 # Generate a series of input number X1,X2 and X3 for testing
-x1 =  np.random.randint(0,1000, size= 200).astype(np.float32)
-x2 = np.random.randint(1, 500, size=200).astype(np.float32)
-x3 = np.random.randint(50, 150 , size=200).astype(np.float32)
+# x1 = np.random.randint(0,1000, size= 200).astype(np.float32)
+# x2 = np.random.randint(1, 500, size=200).astype(np.float32)
+# x3 = np.random.randint(50, 150 , size=200).astype(np.float32)
+x1 = np.random.randint(1500,11000, size=200).astype(np.float32)
+x2 = np.random.randint(500, 6500, size=200).astype(np.float32)
+x3 = np.random.randint(0, 2000 , size=200).astype(np.float32)
 
-x_test = np.column_stack((x1,x2,x3))
+x_test = np.column_stack((x1,x2))
 
-y_test = (x1/4) + (x2/2) + x3**2
+# y_test = (x1/4) + (x2/2) + x3**2
 
-#y_test = x1 + x2 + x3
+y_test = x1 + x2 #+ x3
 
 print()
-print(x_test.shape)
-print(y_test.shape)
+# print(x_test.shape)
+# print(y_test.shape)
 
+# ===== Build Model =====
 
 # Define the placeholder to feed the value at run time
-X = tf.placeholder(dtype=tf.float32, shape =[None , 3])    # Number of samples x Number of features (number of inputs to be added)
+X = tf.placeholder(dtype=tf.float32, shape =[None , 2])    # Number of samples x Number of features (number of inputs to be added)
 Y = tf.placeholder(dtype=tf.float32, shape=[None,])
 
 # define the network
 # Here the network contains only one NAC cell (for testing)
-y_pred  = nalu(X, out_units=1)
+y_pred, G, weight_simp, weight_comp = nalu(X, out_units=1, get_weights=True)
 y_pred = tf.squeeze(y_pred)             # Remove extra dimensions if any
 
 # Mean Square Error (MSE)
@@ -161,11 +162,17 @@ with tf.Session() as sess:
     print("Pre training MSE: ", sess.run (loss, feed_dict={X: x_test, Y:y_test}))
     print()
     cost_history = []
+    G_history = []
+    ws_history = []
+    wc_history = []
 
     for i in range(epochs):
-        _, cost = sess.run([optimize, loss], feed_dict={X: x_train, Y: y_train})
+        _, cost, G_value, weight_simple, weight_complex = sess.run([optimize, loss, G, weight_simp, weight_comp], feed_dict={X: x_train, Y: y_train})
         print("epoch: {}, MSE: {}".format(i, cost))
         cost_history.append(cost)
+        G_history.append(G_value)
+        ws_history.append(weight_simple)
+        wc_history.append(weight_complex)
 
     # plot the MSE over each iteration
     plt.plot(np.arange(epochs),np.log(cost_history))  # Plot MSE on log scale
@@ -183,3 +190,6 @@ with tf.Session() as sess:
     print()
     y_hat = sess.run(y_pred, feed_dict={X: x_test, Y: y_test})
     print("Predicted sum: ", y_hat[0:10] )
+
+
+    print("Hello.")
