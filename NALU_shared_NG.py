@@ -99,7 +99,7 @@ x3 = np.arange(0, 500, step = 1, dtype= np.float32)
 
 # Make any function of x1,x2 and x3 to try the network on
 # y_train = (x1/4) + (x2/2) + x3**2
-y_train = x1 + x2 #+ x3
+y_train = x1 * x2 #+ x3
 
 x_train = np.column_stack((x1,x2))
 
@@ -118,7 +118,7 @@ x_test = np.column_stack((x1,x2))
 
 # y_test = (x1/4) + (x2/2) + x3**2
 
-y_test = x1 + x2 #+ x3
+y_test = x1 * x2 #+ x3
 
 print()
 # print(x_test.shape)
@@ -142,7 +142,7 @@ loss = tf.reduce_mean( (y_pred - Y) **2)
 
 
 # training parameters
-alpha = 0.005 # learning rate
+alpha = 0.01 # learning rate
 epochs = 30000
 
 

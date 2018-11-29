@@ -187,9 +187,10 @@ with tf.Session() as sess:
     print("Post training MSE: ", sess.run(loss, feed_dict={X: x_test, Y: y_test}))
 
     print("Actual sum: ", y_test[0:10])
+    print("y_test is: ", tf.shape(y_test))
     print()
     y_hat = sess.run(y_pred, feed_dict={X: x_test, Y: y_test})
     print("Predicted sum: ", y_hat[0:10] )
-
+    print("y_hat is: ", tf.shape(y_hat))
 
     print("Hello.")
