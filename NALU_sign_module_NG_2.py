@@ -57,7 +57,7 @@ def sign_module(x_in):
     # Weights to learn how to extract sign features
     # S_hat = tf.get_variable(name="S_hat", initializer=tf.initializers.random_uniform(minval=-2, maxval=2),
     #                         shape=[in_shape, in_shape], trainable=True)
-    S_hat = tf.get_variable(name="S_hat", initializer=tf.initializers.random_uniform(minval=-2, maxval=2),
+    S_hat = tf.get_variable(name="S_hat", initializer=tf.initializers.random_uniform(minval=0, maxval=2),
                             shape=[1, in_shape], trainable=True)
 
     # Theoretically grabs the sign
@@ -74,10 +74,10 @@ def sign_module(x_in):
 
     print("sign is: ", sign.shape)
 
-    return sign
+    return sign, S_hat, c
 
 # NALU, combining simple NAC and complex NAC
-def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
+def nalu(x_in, out_units, epsilon=0.000001, get_weights=True):
     '''
     :param x_in: input feature vector
     :param out_units: number of output units of the cell
@@ -104,7 +104,8 @@ def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
     # Get output of complex NAC
     m, W_complex = nac_complex_single_layer(x_in, W_hat, M_hat, epsilon=epsilon)
 
-    s = tf.expand_dims(sign_module(x_in), 1)
+    s, s_weight, c_weight = sign_module(x_in)
+    s = tf.expand_dims(s, 1)
 
     # Sign Gate
     # S_G = tf.get_variable(initializer=tf.random_normal_initializer(stddev=1.0),
@@ -125,7 +126,7 @@ def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
     y_out = g * a + (1 - g) * m * s
     print("y_out is:", tf.shape(y_out), y_out.shape)
     if (get_weights):
-        return y_out, G, W_simple, W_complex
+        return y_out, G, W_simple, W_complex, s_weight, c_weight, g
     else:
         return y_out
 
@@ -133,11 +134,14 @@ def nalu(x_in, out_units, epsilon=0.000001, get_weights=False):
 # Test the Network by learning the addition
 
 # Generate a series of input number X1,X2 and X3 for training
-# x1 =  np.arange(1000,11000, step=5, dtype= np.float32)
-# x2 =  np.arange(500, 6500 , step=3, dtype= np.float32)
-# x3 = np.arange(0, 2000, step = 1, dtype= np.float32)
 x1 = np.arange(-250, 250, step=2, dtype=np.float32)
 x2 = np.arange(1, 251, step=1, dtype=np.float32)
+# x2 = -1*np.abs(x1)+125  # [-125 to 125 to -125]
+# x1_more = np.arange(-250, 250, step=1, dtype=np.float32)
+# x2_more = np.abs(x1_more)-125
+# x1 = np.concatenate((x1,x1_more))
+# x2 = np.concatenate((x2,x2_more))
+
 x3 = np.arange(0, 500, step=1, dtype=np.float32)
 
 # Make any function of x1,x2 and x3 to try the network on
@@ -145,16 +149,14 @@ x3 = np.arange(0, 500, step=1, dtype=np.float32)
 y_train = x1 * x2  # + x3
 
 x_train = np.column_stack((x1, x2))
-# x_train, y_train = shuffle(x_train, y_train, random_state=0)
+x_train, y_train = shuffle(x_train, y_train, random_state=0)
 
 # print(x_train.shape)
 # print(y_train.shape)
 
 # Generate a series of input number X1,X2 and X3 for testing
-# x1 = np.random.randint(0,1000, size= 200).astype(np.float32)
-# x2 = np.random.randint(1, 500, size=200).astype(np.float32)
-# x3 = np.random.randint(50, 150 , size=200).astype(np.float32)
-x1 = np.random.randint(-2000, 2000, size=200).astype(np.float32)
+x1 = np.random.randint(-1000, 1000, size=200).astype(np.float32)
+# x2 = np.random.randint(-1000, 1000, size=200).astype(np.float32)
 x2 = np.random.randint(250, 1000, size=200).astype(np.float32)
 x3 = np.random.randint(0, 2000, size=200).astype(np.float32)
 
@@ -176,7 +178,7 @@ Y = tf.placeholder(dtype=tf.float32, shape=[None, ])
 
 # define the network
 # Here the network contains only one NAC cell (for testing)
-y_pred, G, weight_simp, weight_comp = nalu(X, out_units=1, get_weights=True)
+y_pred, G, weight_simp, weight_comp, s_w, c_w, g = nalu(X, out_units=1, get_weights=True)
 # y_pred = nalu(X, out_units=1)  # Remove extra dimensions if any
 y_pred = tf.squeeze(y_pred)
 
@@ -185,7 +187,7 @@ loss = tf.reduce_mean((y_pred - Y) ** 2)
 # loss= tf.losses.mean_squared_error(labels=y_train, predictions=y_pred)
 
 # training parameters
-alpha = 0.01  # learning rate
+alpha = 0.1  # learning rate
 epochs = 30000
 
 optimize = tf.train.AdamOptimizer(learning_rate=alpha).minimize(loss)
@@ -196,25 +198,74 @@ with tf.Session() as sess:
     # pre training evaluate
     print("Pre training MSE: ", sess.run(loss, feed_dict={X: x_test, Y: y_test}))
     print()
+
     cost_history = []
     G_history = []
+    g_history = []
     ws_history = []
     wc_history = []
+    c_w_array = []
+    s_w_history = []
 
     for i in range(epochs):
-        _, cost, G_value, weight_simple, weight_complex = sess.run([optimize, loss, G, weight_simp, weight_comp],
+        _, cost, G_value, weight_simple, weight_complex, s_weight, c_weight, g_value = sess.run([optimize, loss, G, weight_simp, weight_comp, s_w, c_w, g],
                                                                    feed_dict={X: x_train, Y: y_train})
         print("epoch: {}, MSE: {}".format(i, cost))
         cost_history.append(cost)
-        G_history.append(G_value)
-        ws_history.append(weight_simple)
-        wc_history.append(weight_complex)
+        G_history.append(np.squeeze(G_value))
+        g_history.append(g_value[0])
+        ws_history.append(np.squeeze(weight_simple))
+        wc_history.append(np.squeeze(weight_complex))
+        s_w_history.append(np.squeeze(s_weight))
+        c_w_array.append(c_weight[0])
+
+    s_w_history = np.transpose(s_w_history)
+    ws_history = np.transpose(ws_history)
+    wc_history = np.transpose(wc_history)
+    G_history = np.transpose(G_history)
 
     # plot the MSE over each iteration
+    fig1 = plt.figure()
     plt.plot(np.arange(epochs), np.log(cost_history))  # Plot MSE on log scale
     plt.xlabel("Epoch")
     plt.ylabel("MSE")
-    plt.show()
+    plt.title("Cost History")
+    fig1.show()
+
+    fig2 = plt.figure()
+    plt.plot(np.arange(epochs), G_history[0], '--b', np.arange(epochs), G_history[1], '--g', np.arange(epochs), g_history, '-r')
+    plt.xlabel("Epoch")
+    plt.ylabel("Gate value")
+    plt.title("Gate History (1 = Addition, 0 = Multiplication)")
+    fig2.show()
+
+    fig3 = plt.figure()
+    plt.plot(np.arange(epochs), c_w_array)
+    plt.xlabel("Epoch")
+    plt.ylabel("Scaler value")
+    plt.title("Scaler History")
+    fig3.show()
+
+    fig4 = plt.figure()
+    plt.plot(np.arange(epochs), s_w_history[0],np.arange(epochs), s_w_history[1])
+    plt.xlabel("Epoch")
+    plt.ylabel("Sign weight value")
+    plt.title("Sign weight History")
+    fig4.show()
+
+    fig5 = plt.figure()
+    plt.plot(np.arange(epochs), ws_history[0], np.arange(epochs), ws_history[1])
+    plt.xlabel("Epoch")
+    plt.ylabel("Simple NAC Weight Value")
+    plt.title("Simple NAC Weights - History")
+    fig5.show()
+
+    fig5a = plt.figure()
+    plt.plot(np.arange(epochs), wc_history[0], np.arange(epochs), wc_history[1])
+    plt.xlabel("Epoch")
+    plt.ylabel("Complex NAC Weight Value")
+    plt.title("Complex NAC Weights - History")
+    fig5a.show()
 
     print()
     # print(W.eval())
